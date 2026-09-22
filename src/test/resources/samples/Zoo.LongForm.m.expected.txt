@@ -1,0 +1,12 @@
+counts: types=0 namespaces=0
+blocks: 9
+
+decl=10 open=11 close=18 span=8 FUNCTION 'fun' name='tiny' start='' end=''
+decl=20 open=21 close=49 span=29 FUNCTION 'fun' name='justUnderLabel' start='' end=''
+decl=51 open=52 close=82 span=31 FUNCTION 'fun' name='justOverLabel' start='' end='fun justOverLabel'
+decl=84 open=85 close=143 span=59 FUNCTION 'fun' name='justUnderSpan' start='' end='fun justUnderSpan'
+decl=145 open=146 close=206 span=61 FUNCTION 'fun' name='justOverSpan' start='' end='fun justOverSpan ↑: 145  Δ: 61'
+decl=212 open=212 close=247 span=35 FUNCTION 'fun' name='animations' nested lambda start='' end='λ animations'
+decl=247 open=247 close=249 span=2 FUNCTION 'fun' name='completion' nested lambda start='' end=''
+decl=208 open=209 close=260 span=52 FUNCTION 'fun' name='withBlocks' start='' end='fun withBlocks'
+decl=264 open=265 close=325 span=61 FUNCTION 'fun' name='HTAZooLogEverything' start='' end='fun HTAZooLogEverything ↑: 264  Δ: 61'

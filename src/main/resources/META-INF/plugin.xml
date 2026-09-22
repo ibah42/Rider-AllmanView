@@ -1,0 +1,33 @@
+<idea-plugin>
+    <id>com.allman-view</id>
+    <name>Allman View</name>
+    <vendor email="ibah42@gmail.com">ivv</vendor>
+
+    <description><![CDATA[
+    Shows your code in Allman style without changing the file.<br/><br/>
+    When a line ends with <code>{</code>, the real brace stays where it is and is simply dimmed,
+    while a phantom line with the brace is drawn underneath at the right indent.
+    The same happens for <code>} else {</code>, <code>} catch {</code>, <code>} finally {</code>.<br/><br/>
+    Nothing is written to the file: copying, search, the compiler and git all see the real text.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.allmanview.AllmanStartup"/>
+        <applicationConfigurable
+                parentId="editor"
+                id="com.allmanview.settings"
+                instance="com.allmanview.AllmanConfigurable"
+                displayName="Allman View"/>
+    </extensions>
+
+    <actions>
+        <action id="AllmanView.Toggle"
+                class="com.allmanview.ToggleAllmanAction"
+                text="Allman Braces"
+                description="Turn the visual move of opening braces on or off">
+            <add-to-group group-id="ViewMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

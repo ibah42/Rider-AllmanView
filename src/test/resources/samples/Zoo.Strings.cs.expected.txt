@@ -1,0 +1,10 @@
+counts: types=2 namespaces=1
+blocks: 7
+
+decl=108 open=109 close=121 span=13 FUNCTION 'fun' name='Render' start='' end=''
+decl=129 open=130 close=132 span=3 FUNCTION 'get' name='' nested accessor start='' end=''
+decl=127 open=128 close=133 span=6 FUNCTION 'prop' name='Length' start='' end=''
+decl=135 open=136 close=138 span=3 FUNCTION 'fun' name='Add' start='' end=''
+decl=123 open=124 close=139 span=16 TYPE 'class' name='Buffer' nested start='nest' end='nest class Buffer'
+decl=13 open=14 close=140 span=127 TYPE 'class' name='Templates' start='' end='class Templates ↑: 13  Δ: 127'
+decl=11 open=12 close=141 span=130 NAMESPACE 'ns' name='' start='' end='ns'
