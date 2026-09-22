@@ -1,5 +1,6 @@
 package com.allmanview
 
+import com.allmanview.geometry.LabelNavigationGeometry
 import com.allmanview.scan.Dialects
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
@@ -341,11 +342,7 @@ class AllmanConfigurable : BoundConfigurable("Allman View") {
                                 "The label after a closing brace becomes a button: click it " +
                                     "and the editor goes to the declaration that brace closes. " +
                                     "The jump is recorded in the Back history, so Ctrl+Alt+Left " +
-                                    "returns to the brace. Where the view lands is a mirror " +
-                                    "about the middle of the screen -- a label low on screen " +
-                                    "puts its declaration high on it, so the body of the block " +
-                                    "fills the view -- and a declaration already visible with " +
-                                    "two lines to spare does not scroll at all.",
+                                    "returns to the brace.",
                             )
                     }
                     rowsRange {
@@ -360,6 +357,24 @@ class AllmanConfigurable : BoundConfigurable("Allman View") {
                                 "which makes the label behave like a link at the cost of the " +
                                 "odd jump while selecting text. Cmd stands in for Ctrl on " +
                                 "macOS, where a Control-click is a right-click.",
+                        )
+                        row("Declaration off screen lands on line:") {
+                            spinner(NAVIGATION_LINES_RANGE, NAVIGATION_LINES_STEP)
+                                .bindIntValue(config::labelNavigationLandingLines)
+                        }.rowComment(
+                            "Counted from the top edge of the editor, 0 being the top line " +
+                                "itself. Near the start of the file it lands higher, as there " +
+                                "is nothing above it to scroll to.",
+                        )
+                        row("Visible declaration needs at least:") {
+                            spinner(NAVIGATION_LINES_RANGE, NAVIGATION_LINES_STEP)
+                                .bindIntValue(config::labelNavigationMinimumTopLines)
+                            label("lines above it")
+                        }.rowComment(
+                            "A declaration already on screen but closer to the top than this " +
+                                "is pulled down just far enough; one with that much room does " +
+                                "not scroll at all. Cannot exceed the landing line -- it is " +
+                                "lowered to it on apply.",
                         )
                     }.enabledIf(labelNavigation.selected)
                 }.enabledIf(accentBraces.selected)
@@ -755,7 +770,24 @@ class AllmanConfigurable : BoundConfigurable("Allman View") {
 
     override fun apply() {
         super.apply()
+        limitNavigationMinimum()
         AllmanService.getInstance().refreshAll()
+    }
+
+    /**
+     * A minimum above the landing line would put a declaration fetched from off screen inside
+     * its own "too close to the top" zone, so it is lowered rather than rejected. Validating
+     * instead would block the whole page over one spinner the reader may not have touched.
+     */
+    private fun limitNavigationMinimum() {
+        val config = AllmanSettings.getInstance().state
+        if (config.labelNavigationMinimumTopLines <= config.labelNavigationLandingLines) {
+            return
+        }
+        config.labelNavigationMinimumTopLines = config.labelNavigationLandingLines
+        // Pull the corrected value back into the spinner, or the page would keep showing the
+        // number that was just overridden and report itself modified.
+        reset()
     }
 
     private companion object {
@@ -774,6 +806,10 @@ class AllmanConfigurable : BoundConfigurable("Allman View") {
         /** How many lines or characters of edge whitespace the spinner can ask to wait for. */
         val EDGE_WHITESPACE_MIN_RANGE = 1..50
         const val EDGE_WHITESPACE_MIN_STEP = 1
+
+        /** Lines from the top edge of the editor, for both label navigation spinners. */
+        val NAVIGATION_LINES_RANGE = 0..LabelNavigationGeometry.MAX_TOP_LINES
+        const val NAVIGATION_LINES_STEP = 1
     }
 }
 

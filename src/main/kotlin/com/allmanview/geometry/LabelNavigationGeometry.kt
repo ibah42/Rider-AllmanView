@@ -13,94 +13,91 @@ import kotlin.math.min
  * inside the controller.
  *
  * Everything is measured in the content component's pixels -- the ones `Editor.offsetToXY`,
- * `Inlay.getBounds` and `ScrollingModel.getVisibleArea` all speak -- and never in lines. In
- * this plugin a phantom line is a block inlay, so two document lines twenty lines apart are
- * not twenty line heights apart on screen. Counting lines would land the declaration in the
- * wrong place in exactly the files the plugin exists for.
+ * `ScrollingModel.getVisibleArea` and `Editor.getLineHeight` all speak. The two settings are in
+ * lines, but a line here is only ever a distance from the top of the *viewport*, multiplied out
+ * by the line height; it is never a count of document lines. In this plugin a phantom line is a
+ * block inlay, so two document lines twenty lines apart are not twenty line heights apart on
+ * screen.
  */
 object LabelNavigationGeometry {
+
+    /** The largest value either setting accepts. More than this is a jump to mid-screen. */
+    const val MAX_TOP_LINES = 20
 
     /**
      * The scroll offset to move to, or null to leave the scroll exactly where it is.
      *
-     * The rule is a mirror about the middle of the viewport: the declaration lands as far from
-     * the top as the clicked label stood from the bottom. Click a label sitting low on screen
-     * and the declaration appears high on it, so the block's body fills the view instead of
-     * flying past it; click in the very middle and nothing moves at all, because the middle
-     * mirrors onto itself.
+     * Three cases, in the order they are tested:
      *
-     * Null comes back when the declaration is already on screen with [marginLines] to spare.
-     * The mirror would still have moved the view in that case -- a three-line block a third of
-     * the way down the screen would be shoved to two thirds of the way down -- and jerking the
-     * text under a reader who can already see both ends of the block is the one thing this is
-     * meant to avoid.
+     * 1. The declaration is not fully inside the viewport -- in practice it is above it, since a
+     *    declaration always precedes its own closing brace and the label on that brace was just
+     *    clicked. It lands [landingLines] lines below the top edge.
+     * 2. It is inside, but fewer than [minimumTopLines] lines below the top edge. The view moves
+     *    just far enough to put it on that line and no further.
+     * 3. It is inside with at least that much room above it. Nothing moves; only the caret does.
      *
-     * @param clickedY top of the line the clicked label sits on
+     * Both results are clamped to the scroll range, so near the start of a file the declaration
+     * simply ends up closer to the top than asked -- there is nothing above it to scroll to.
+     *
      * @param targetY top of the line the declaration sits on
      * @param viewportTop y of the first visible pixel, i.e. the current scroll offset
      * @param viewportHeight height of the visible area
      * @param lineHeight height of one line
      * @param maximumScroll the largest offset this editor can be scrolled to
-     * @param marginLines how much of the viewport's top and bottom does not count as
-     *   "already visible", so that a declaration clinging to an edge is still brought inwards
+     * @param landingLines lines between the top edge and a declaration that had to be fetched
+     *   from outside the viewport
+     * @param minimumTopLines the least room above a declaration that is already visible
      */
     fun scrollTargetY(
-        clickedY: Int,
         targetY: Int,
         viewportTop: Int,
         viewportHeight: Int,
         lineHeight: Int,
         maximumScroll: Int,
-        marginLines: Int,
+        landingLines: Int,
+        minimumTopLines: Int,
     ): Int? {
         // A viewport with no height at all is a window being dragged open or an editor that
         // has not been laid out yet. There is no "where to scroll" to answer.
         if (lineHeight <= 0 || viewportHeight <= 0) {
             return null
         }
-        if (isAlreadyVisible(targetY, viewportTop, viewportHeight, lineHeight, marginLines)) {
+
+        val landing = effectiveTopLines(landingLines, viewportHeight, lineHeight)
+        // Clamped to the landing line as well as to the viewport: the settings page enforces
+        // it, but a hand-edited allman-view.xml does not, and a minimum above the landing line
+        // would make a declaration fetched from off screen land inside the "too close" zone.
+        val minimum = min(effectiveTopLines(minimumTopLines, viewportHeight, lineHeight), landing)
+
+        val fromTop = targetY - viewportTop
+        val targetFromTop: Int
+        if (!isInsideViewport(fromTop, viewportHeight, lineHeight)) {
+            targetFromTop = landing * lineHeight
+        } else if (fromTop < minimum * lineHeight) {
+            targetFromTop = minimum * lineHeight
+        } else {
             return null
         }
-
-        val lowestLineTop = max(0, viewportHeight - lineHeight)
-        // Clamped because a label can be clicked while half of it hangs off the edge of the
-        // viewport, and a negative distance would mirror into a target below the bottom.
-        val clickedFromTop = (clickedY - viewportTop).coerceIn(0, lowestLineTop)
-        val targetFromTop = lowestLineTop - clickedFromTop
 
         return (targetY - targetFromTop).coerceIn(0, max(0, maximumScroll))
     }
 
     /**
-     * Whether the declaration already stands inside the viewport, far enough from both edges
-     * that the reader can see it without hunting for it.
+     * Keeps a setting within [0, MAX_TOP_LINES] and within the viewport.
+     *
+     * The viewport cap is what keeps a short window usable: asked for ten lines of room in a
+     * window five lines tall, the declaration would be put below the bottom edge -- off screen,
+     * after a jump whose whole point was to show it.
      */
-    fun isAlreadyVisible(
-        targetY: Int,
-        viewportTop: Int,
-        viewportHeight: Int,
-        lineHeight: Int,
-        marginLines: Int,
-    ): Boolean {
-        val margin = effectiveMargin(viewportHeight, lineHeight, marginLines)
-        val fromTop = targetY - viewportTop
-
-        if (fromTop < margin) {
-            return false
-        }
-        return fromTop + lineHeight <= viewportHeight - margin
+    private fun effectiveTopLines(requested: Int, viewportHeight: Int, lineHeight: Int): Int {
+        val lowestLine = max(0, viewportHeight / lineHeight - 1)
+        return min(requested.coerceIn(0, MAX_TOP_LINES), lowestLine)
     }
 
-    /**
-     * The margin actually applied, which is not always the one asked for.
-     *
-     * A viewport too short to hold the requested margin twice over plus a line of text would
-     * call nothing visible and scroll on every single click -- the smaller the window, the more
-     * it would jump. Shrinking the margin to fit keeps the rule meaningful at any window size.
-     */
-    private fun effectiveMargin(viewportHeight: Int, lineHeight: Int, marginLines: Int): Int {
-        val requested = marginLines * lineHeight
-        val largestThatFits = max(0, (viewportHeight - lineHeight) / 2)
-        return min(requested, largestThatFits)
+    private fun isInsideViewport(fromTop: Int, viewportHeight: Int, lineHeight: Int): Boolean {
+        if (fromTop < 0) {
+            return false
+        }
+        return fromTop + lineHeight <= viewportHeight
     }
 }

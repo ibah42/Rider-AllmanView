@@ -582,7 +582,7 @@ class AllmanController(private val editor: Editor) : Disposable {
         }
 
         event.consume()
-        navigateToDeclaration(label, target)
+        navigateToDeclaration(target)
     }
 
     private fun isOverNavigableLabel(event: EditorMouseEvent): Boolean {
@@ -653,9 +653,9 @@ class AllmanController(private val editor: Editor) : Disposable {
      * a command finishes, and the caret crossing a line marks the other half of that test
      * itself.
      */
-    private fun navigateToDeclaration(label: Inlay<*>, targetOffset: Int) {
-        // Read before the caret moves, so the geometry is the one the reader clicked on.
-        val scrollTo = scrollAfterJump(label, targetOffset)
+    private fun navigateToDeclaration(targetOffset: Int) {
+        // Read before the caret moves, so the viewport measured is the one the reader clicked in.
+        val scrollTo = scrollAfterJump(targetOffset)
 
         val project = editor.project
         if (project == null || project.isDefault) {
@@ -684,21 +684,18 @@ class AllmanController(private val editor: Editor) : Disposable {
     }
 
     /** Where to scroll after the jump, or null to leave the view alone. */
-    private fun scrollAfterJump(label: Inlay<*>, targetOffset: Int): Int? {
-        val labelBounds = label.bounds
-        if (labelBounds == null) {
-            return null
-        }
+    private fun scrollAfterJump(targetOffset: Int): Int? {
+        val config = AllmanSettings.getInstance().state
         val visibleArea = editor.scrollingModel.visibleArea
 
         return LabelNavigationGeometry.scrollTargetY(
-            clickedY = labelBounds.y,
             targetY = editor.offsetToXY(targetOffset).y,
             viewportTop = visibleArea.y,
             viewportHeight = visibleArea.height,
             lineHeight = editor.lineHeight,
             maximumScroll = max(0, editor.contentComponent.height - visibleArea.height),
-            marginLines = NAVIGATION_MARGIN_LINES,
+            landingLines = config.labelNavigationLandingLines,
+            minimumTopLines = config.labelNavigationMinimumTopLines,
         )
     }
 
@@ -1074,14 +1071,6 @@ class AllmanController(private val editor: Editor) : Disposable {
 
         /** Above the dimming highlighter too, so the underline is never painted over. */
         private const val MEMBER_SPACING_LAYER_OFFSET = 110
-
-        /**
-         * How close to an edge of the viewport a declaration may sit and still count as one
-         * the reader can already see. Inside this many lines of the top or the bottom,
-         * clicking the label re-aims the view instead of leaving it alone -- a declaration
-         * clinging to an edge is visible in the letter of the word only.
-         */
-        private const val NAVIGATION_MARGIN_LINES = 2
 
         /**
          * What the caret move is called. Nothing is edited, so this never appears as an undo

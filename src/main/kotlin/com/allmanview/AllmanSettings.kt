@@ -94,6 +94,19 @@ class AllmanSettings : SimplePersistentStateComponent<AllmanSettings.Config>(Con
         var labelNavigationShift: Boolean by property(false)
 
         /**
+         * Lines between the top of the viewport and a declaration the jump had to fetch from
+         * outside it. See LabelNavigationGeometry.scrollTargetY.
+         */
+        var labelNavigationLandingLines: Int by property(3)
+
+        /**
+         * The least room above a declaration that is already on screen: closer to the top than
+         * this and the view moves just far enough to give it that much. Never above
+         * [labelNavigationLandingLines] -- the settings page lowers it on apply.
+         */
+        var labelNavigationMinimumTopLines: Int by property(3)
+
+        /**
          * Master switch for the `nest` marker: before a nested block's own declaration line,
          * always; at the start of its end-of-block label, only once the block reaches
          * [nestedMarkerEndOfBlockMinLines].

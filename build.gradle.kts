@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.allmanview"
-version = "1.16.1"
+version = "1.17.0"
 
 repositories {
     mavenCentral()

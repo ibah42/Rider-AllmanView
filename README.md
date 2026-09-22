@@ -134,13 +134,16 @@ Which modifiers the click must carry — Ctrl/Cmd, Alt, Shift, or none at all fo
 is set under **Clicking the end-of-block label**, and they are matched exactly rather than as a
 minimum: with Ctrl alone ticked, a Ctrl+Alt-click is somebody else's gesture and is left to them.
 
-Where the view lands is a mirror about the middle of the screen. The declaration appears as far
-from the top as the label you clicked stood from the bottom, so clicking a label low on screen
-brings the declaration high on it and the block's body fills the view instead of flying past;
-click in the very middle and nothing moves, because the middle mirrors onto itself. A declaration
-already on screen with two lines to spare at both edges does not scroll at all — the mirror would
-still have shoved a short block across the screen, and moving the text under a reader who can
-already see both ends of the block is the one thing this avoids.
+Where the view lands is set by two numbers on the same page, both counted in lines down from
+the top edge of the editor and both 3 by default:
+
+- **Declaration off screen lands on line** — a declaration outside the viewport (in practice,
+  above it) is brought to this line. Near the start of the file it lands higher, as there is
+  nothing above it to scroll to.
+- **Visible declaration needs at least N lines above it** — a declaration already on screen but
+  closer to the top than this is pulled down just far enough to reach it; one with that much room
+  does not scroll at all, and only the caret moves. It cannot exceed the landing line: the
+  settings page lowers it to that on apply.
 
 It is measured in pixels rather than lines, because a phantom line is a block inlay: two document
 lines twenty lines apart are not twenty line heights apart on screen. The arithmetic is in

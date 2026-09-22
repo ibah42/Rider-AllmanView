@@ -2,6 +2,38 @@
 
 One entry per version bump, newest first. See CLAUDE.md, "Keep a version log", for the rule.
 
+## 1.17.0
+
+- Clicking an end-of-block label no longer mirrors the view about the middle of the screen. The
+  mirror made where the declaration landed depend on where the clicked label happened to stand,
+  which read as the view jumping to a different place every time. The rule is now fixed and
+  configurable, both values in lines down from the top edge of the editor:
+  - `labelNavigationLandingLines` (default 3): a declaration outside the viewport is brought to
+    this line. Near the start of the file it lands higher -- the scroll is clamped at 0.
+  - `labelNavigationMinimumTopLines` (default 3): a declaration already visible but closer to the
+    top than this is pulled down just far enough to reach it, e.g. from line 1 to line 3 moves
+    the view by two lines. With that much room already, nothing scrolls.
+- Both are 0..20 spinners under "Clicking the end-of-block label". The minimum cannot exceed the
+  landing line -- otherwise a declaration fetched from off screen would land inside its own "too
+  close" zone. The settings page lowers it on apply rather than rejecting the page, and
+  `LabelNavigationGeometry` caps it again, for a hand-edited `allman-view.xml`. Both are also
+  capped to the viewport's own lowest line, so a short window never scrolls the declaration off
+  the bottom.
+- The bottom-edge margin and `NAVIGATION_MARGIN_LINES` are gone, and so is the clicked label's
+  position as an input: a declaration always precedes its own closing brace, so once the label
+  was clicked on screen the declaration is either above the viewport or inside it above the label.
+  `LabelNavigationGeometryTest` is rewritten for the new rule.
+
+## 1.16.2
+
+- The plugin now has an icon: `META-INF/pluginIcon.svg` plus a `pluginIcon_dark.svg` for dark
+  themes. `A.V. {}` -- the letters at ordinary uppercase proportions (width about two thirds of
+  their height, not stretched to fill the square), with the braces beside them at half the
+  letters' height and standing on the same baseline.
+- Drawn as stroked paths, not `<text>`: the IDE renders plugin icons with its own SVG engine and
+  whatever font a `<text>` element asked for is not guaranteed to be there, so the glyphs would
+  shift or vanish. The dark file differs from the light one only in the two colours.
+
 ## 1.16.1
 
 - New marker: a red wavy line under the closing brace's own line wherever two adjacent members
