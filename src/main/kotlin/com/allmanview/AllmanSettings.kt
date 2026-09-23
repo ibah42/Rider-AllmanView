@@ -336,6 +336,14 @@ class AllmanSettings : SimplePersistentStateComponent<AllmanSettings.Config>(Con
         /** How far the underline moves from a plain warning red towards grey. */
         var memberSpacingGreyPercent: Int by property(35)
 
+        /**
+         * Leave out the edge whitespace and member spacing markers in a file that is not the
+         * user's to fix: read-only, decompiled, not on the local disk, or a Unity package under
+         * `Library/PackageCache`. The braces are still drawn -- they are about reading, not
+         * about the file's formatting. See AllmanController.isForeignSource.
+         */
+        var formattingMarkersSkipForeign: Boolean by property(true)
+
         /** Apply to any text file, ignoring [extensions]. */
         var allFiles: Boolean by property(false)
 

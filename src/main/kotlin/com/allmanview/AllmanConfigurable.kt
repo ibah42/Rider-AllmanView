@@ -727,6 +727,17 @@ class AllmanConfigurable : BoundConfigurable("Allman View") {
 
             group("Which files") {
                 row {
+                    checkBox("No formatting markers in files you cannot edit")
+                        .bindSelected(config::formattingMarkersSkipForeign)
+                        .comment(
+                            "Edge whitespace and member spacing are left out of read-only " +
+                                "files, decompiled sources, files that are not on the local " +
+                                "disk, and Unity packages under Library/PackageCache -- their " +
+                                "formatting is somebody else's, and there is nothing to fix. " +
+                                "The braces are still drawn.",
+                        )
+                }
+                row {
                     checkBox("All text files")
                         .bindSelected(config::allFiles)
                         .comment("When on, the extension list below is ignored.")

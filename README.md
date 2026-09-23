@@ -190,6 +190,15 @@ mechanic -- no scanner change was needed. The line itself is drawn by
 is outside what a `RangeHighlighter`'s own effect can do, so it paints the wave by hand, the same
 way `BraceShadowRenderer` paints a brace's shadow.
 
+## Files that are not yours
+
+Edge whitespace and member spacing both point at something to fix, so neither is drawn where
+nothing can be fixed: a read-only file, a decompiled or SourceLink source, anything outside the
+local disk, Rider's own `resharper-host/SourcesCache` (decompiled and SourceLink sources, which
+Rider leaves writable), and a Unity package under `Library/PackageCache`, which Unity overwrites
+on every resolve. The braces are still drawn there. "No formatting markers in files you cannot edit",
+under "Which files", turns this off.
+
 ## Four independent switches
 
 The settings page has one master checkbox and four mechanics under it, each with its own switch:

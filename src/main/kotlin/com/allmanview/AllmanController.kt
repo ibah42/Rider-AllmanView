@@ -6,12 +6,14 @@ import com.allmanview.scan.BraceScanner
 import com.allmanview.scan.Dialects
 import com.allmanview.scan.EdgeWhitespacePolicy
 import com.allmanview.scan.Flavor
+import com.allmanview.scan.ForeignSourcePolicy
 import com.allmanview.scan.MemberSpacingPolicy
 import com.allmanview.scan.PhantomSite
 import com.allmanview.scan.ScanOptions
 import com.allmanview.scan.ScanResult
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.command.CommandProcessor
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.Inlay
@@ -76,6 +78,9 @@ class AllmanController(private val editor: Editor) : Disposable {
      * be both wasteful and a good way to stamp on somebody else's cursor.
      */
     private var handCursorShown = false
+
+    /** The last verdict [logForeignVerdict] wrote, so a refresh does not repeat it. */
+    private var loggedForeignVerdict: String? = null
 
     private val moveAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
     private val accentAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD, this)
@@ -183,14 +188,20 @@ class AllmanController(private val editor: Editor) : Disposable {
             return
         }
 
+        val showsFormattingMarkers = showsFormattingMarkers(settings)
+
         // Independent of brace scanning entirely, so it draws even on a file this half would
         // otherwise skip below for having nothing left to accent.
-        paintEdgeWhitespaceMarkers(settings)
+        if (showsFormattingMarkers) {
+            paintEdgeWhitespaceMarkers(settings)
+        }
 
         val result = scanResult(settings, flavor)
         val accentStyle = BraceAccentStyle(editor, settings, result.counts)
 
-        paintMemberSpacingMarkers(settings, result)
+        if (showsFormattingMarkers) {
+            paintMemberSpacingMarkers(settings, result)
+        }
         paintDeclarationLineMarkers(accentStyle, result)
         paintRealBraces(
             accentStyle,
@@ -889,6 +900,99 @@ class AllmanController(private val editor: Editor) : Disposable {
     }
 
     /**
+     * Whether edge whitespace and member spacing are drawn at all. Both point at something to
+     * fix in the file, and in a file that is not the user's to fix they are only noise: a
+     * decompiled type is laid out by the decompiler, a package by its authors.
+     *
+     * Asked once per accent refresh rather than kept: a file's read-only state can change with
+     * no edit to the text ("Make writable", a VCS checkout). The markers then catch up on the
+     * next refresh -- the first keystroke, or a settings change -- which is the same moment
+     * they would have anything new to say.
+     */
+    private fun showsFormattingMarkers(settings: AllmanSettings): Boolean {
+        if (!settings.state.formattingMarkersSkipForeign) {
+            return true
+        }
+        return !isForeignSource()
+    }
+
+    /**
+     * Somebody else's code, as far as the editor can tell. Each test catches a case the others
+     * miss:
+     * - a viewer editor, or a document that refuses edits: Rider's decompiled and
+     *   SourceLink-downloaded sources open this way;
+     * - a file outside the local file system: sources inside a jar or an archive, and any
+     *   in-memory file an IDE feature opened;
+     * - a file the disk will not let us write;
+     * - a Unity package cache path, which is none of the above -- see [ForeignSourcePolicy].
+     */
+    private fun isForeignSource(): Boolean {
+        val reason = foreignSourceReason()
+        logForeignVerdict(reason)
+        return reason != null
+    }
+
+    /** Why this file is somebody else's, or null when it is the user's own. */
+    private fun foreignSourceReason(): String? {
+        if (editor.isViewer) {
+            return "viewer editor"
+        }
+        val document = editor.document
+        if (!document.isWritable) {
+            return "document is read-only"
+        }
+
+        // No file means no path to judge and no disk to write to: an in-memory document is not
+        // a source file anybody is formatting.
+        val file = FileDocumentManager.getInstance().getFile(document)
+        if (file == null) {
+            return "no file behind the document"
+        }
+        if (!file.isInLocalFileSystem) {
+            return "not in the local file system"
+        }
+        if (!file.isWritable) {
+            return "file is read-only"
+        }
+        if (ForeignSourcePolicy.isForeignPath(file.path)) {
+            return "package cache path"
+        }
+        return null
+    }
+
+    /**
+     * One line in idea.log per editor, and again only when the verdict changes.
+     *
+     * Where Rider keeps a decompiled or downloaded source, and which of the flags above it sets,
+     * is not documented and differs between versions. A file that should have been skipped and
+     * was not can only be diagnosed from what the platform actually reported for it, so the
+     * facts are written down rather than guessed at a second time.
+     */
+    private fun logForeignVerdict(reason: String?) {
+        val verdict = reason ?: OWN_SOURCE_VERDICT
+        if (verdict == loggedForeignVerdict) {
+            return
+        }
+        loggedForeignVerdict = verdict
+
+        val document = editor.document
+        val file = FileDocumentManager.getInstance().getFile(document)
+        val description: String
+        if (file == null) {
+            description = "<no file>"
+        } else {
+            description = file.url +
+                " (" + file.javaClass.name + ", file writable " + file.isWritable + ")"
+        }
+        LOG.info(
+            "Formatting markers for " + description +
+                ": viewer " + editor.isViewer +
+                ", document writable " + document.isWritable +
+                " -> " + verdict,
+        )
+    }
+
+    /**
      * "whitespaces (N)" in reddish grey: whitespace that should not be at the very start or
      * the very end of the file. A third, independent mechanic -- it has nothing to do with
      * braces, so its only prerequisite besides its own switch is the plugin's master one. Kept
@@ -1082,5 +1186,10 @@ class AllmanController(private val editor: Editor) : Disposable {
         private val NAVIGATION_TARGET: Key<Int> = Key.create("allman.view.navigation.target")
 
         val KEY: Key<AllmanController> = Key.create("allman.view.controller")
+
+        /** What [logForeignVerdict] writes for a file the formatting markers are drawn in. */
+        private const val OWN_SOURCE_VERDICT = "own source, markers drawn"
+
+        private val LOG: Logger = Logger.getInstance(AllmanController::class.java)
     }
 }

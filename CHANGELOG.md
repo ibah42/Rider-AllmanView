@@ -2,6 +2,41 @@
 
 One entry per version bump, newest first. See CLAUDE.md, "Keep a version log", for the rule.
 
+## 1.18.1
+
+- A decompiled BCL file (`System.Collections.Generic.cs` from Rider's navigation) still showed the
+  member spacing wave, so none of the 1.18.0 checks fired for it: Rider hands that file over as
+  writable, on the local disk, outside `Library/PackageCache`. Which flags such a file carries is
+  not documented, so the controller now also writes one line to idea.log per editor -- the file's
+  URL, its `VirtualFile` class, the viewer and writable flags, and the verdict -- and again only if
+  the verdict changes. The next file that slips through is diagnosed from that line, not guessed.
+- The file in question turned out to live in Rider's own sources cache,
+  `%APPDATA%/JetBrains/Rider2026.2/resharper-host/SourcesCache/<hash>/`, where Rider keeps what
+  it decompiles or fetches through SourceLink. `ForeignSourcePolicy` now treats a
+  `resharper-host/SourcesCache` path like `Library/PackageCache`: no edge whitespace, no member
+  spacing, braces as before. The whole segment is matched, so a project folder that merely happens
+  to be called `SourcesCache` is still checked.
+
+## 1.18.0
+
+- Edge whitespace and member spacing are no longer drawn in files that are not yours to fix.
+  Opening a decompiled type, a SourceLink source or a Unity package flagged its missing blank
+  lines and its trailing newline in red -- formatting nobody reading it can change, so the markers
+  were pure noise there. A file counts as foreign when any of these holds: the editor is a viewer,
+  the document refuses edits (how Rider opens decompiled sources), the file is outside the local
+  file system (inside a jar or an archive, or in memory), the file itself is not writable, or its
+  path runs through `Library/PackageCache` -- Unity's unpacked registry and git packages, which
+  Rider leaves writable, so the path is the only thing that gives them away. An embedded package
+  under `Packages/` is still the project's own and still checked.
+- Braces are drawn as before in all of these: they are about reading the code, not about its
+  formatting.
+- New setting, "Which files": "No formatting markers in files you cannot edit"
+  (`formattingMarkersSkipForeign`, on by default). The path rule lives in
+  `scan/ForeignSourcePolicy.kt` with a test per case; the writability checks are
+  `AllmanController.isForeignSource`.
+- Read on every accent refresh, not cached: a file made writable later picks the markers up on the
+  first keystroke or settings change, with no reopen.
+
 ## 1.17.0
 
 - Clicking an end-of-block label no longer mirrors the view about the middle of the screen. The
